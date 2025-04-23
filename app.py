@@ -158,7 +158,7 @@ def create_offer_sheets(template_file, kalen_file, selected_sheet):
         # 找到ID列
         id_col = None
         for col in range(1, kalen_ws.max_column + 1):
-            if kalen_ws.cell(row=1, column=col).value == 'ID':
+            if kalen_ws.cell(row=1, column=col).value == '客户id':
                 id_col = col
                 break
         
@@ -561,10 +561,10 @@ def main():
     col1, col2 = st.columns(2)
     
     with col1:
-        template_file = st.file_uploader("上传template.csv文件", type=["csv"], accept_multiple_files=False)
+        template_file = st.file_uploader("上传院校申请列表.csv 文件", type=["csv"], accept_multiple_files=False)
     
     with col2:
-        kalen_file = st.file_uploader("上传申请跟进.xlsx文件", type=["xlsx"], accept_multiple_files=False)
+        kalen_file = st.file_uploader("上传客户列表.XLSX文件", type=["xlsx"], accept_multiple_files=False)
     
     # 如果两个文件都已上传
     if template_file and kalen_file:
