@@ -12,6 +12,7 @@ from pypinyin import pinyin, Style
 import re
 import time
 import zipfile
+from openpyxl.worksheet.datavalidation import DataValidation
 
 
 def clean_excel_value(value):
@@ -522,6 +523,129 @@ def create_offer_sheets(template_file, kalen_file, selected_sheet):
         # 调整新列的列宽
         kalen_ws.column_dimensions[get_column_letter(enrollment_school_col)].width = 25
         kalen_ws.column_dimensions[get_column_letter(enrollment_program_col)].width = 25
+        
+        # 创建选项表（辅助表）
+        if "选项列表" in kalen_wb.sheetnames:
+            kalen_wb.remove(kalen_wb["选项列表"])
+        options_ws = kalen_wb.create_sheet(title="选项列表", index=len(kalen_wb.sheetnames))
+        options_ws.sheet_state = 'hidden'  # 隐藏此工作表
+        
+        # 为每个学生收集申请的学校和专业
+        student_options = {}
+        
+        # 遍历申请跟进表中的每一行，找到ID
+        for row in range(2, kalen_ws.max_row + 1):
+            id_cell = kalen_ws.cell(row=row, column=id_col)
+            if id_cell.value:
+                # 提取ID（可能是超链接）
+                student_id = extract_id_from_hyperlink(id_cell.value)
+                if student_id:
+                    student_options[row] = {
+                        'id': student_id,
+                        'schools': set(),
+                        'programs': set()
+                    }
+        
+        # 遍历Offer 跟进.xlsx中的每个工作表（客户ID）
+        for sheet_name in offer_wb.sheetnames:
+            if sheet_name in ["押金DDL", "VIP情况"]:
+                continue
+                
+            try:
+                student_id = int(sheet_name)  # 尝试将工作表名转换为ID
+                ws = offer_wb[sheet_name]
+                
+                # 从第3行开始读取数据（跳过名称和表头）
+                for row in range(3, ws.max_row + 1):
+                    school = ws.cell(row=row, column=1).value  # 申请院校英文 (第一列)
+                    program = ws.cell(row=row, column=2).value  # 申请专业英文 (第二列)
+                    
+                    if school and program:
+                        # 清理值
+                        school = clean_excel_value(str(school).strip())
+                        program = clean_excel_value(str(program).strip())
+                        
+                        # 为相应的学生添加学校和专业选项
+                        for kalen_row, options in student_options.items():
+                            if options['id'] == student_id:
+                                options['schools'].add(school)
+                                options['programs'].add(program)
+                                break
+            except (ValueError, KeyError):
+                # 不是有效的客户ID或找不到工作表，跳过
+                continue
+        
+        # 在辅助表中创建每个学生的选项列表
+        current_row = 1
+        
+        for row, options in student_options.items():
+            if not options['schools'] and not options['programs']:
+                continue
+                
+            try:
+                # 记录该学生的选项起始行
+                options_start_row = current_row
+                
+                # 写入学校选项
+                max_count = max(len(options['schools']), len(options['programs']), 1)
+                
+                # 写入标题
+                options_ws.cell(row=current_row, column=1, value=f"ID_{options['id']}_学校")
+                options_ws.cell(row=current_row, column=2, value=f"ID_{options['id']}_专业")
+                current_row += 1
+                
+                # 初始化计数器
+                schools_written = 0
+                programs_written = 0
+                
+                # 转换为列表，便于索引
+                schools_list = list(options['schools'])
+                programs_list = list(options['programs'])
+                
+                # 写入选项数据
+                for i in range(max_count):
+                    if i < len(schools_list):
+                        options_ws.cell(row=current_row, column=1, value=schools_list[i])
+                        schools_written += 1
+                        
+                    if i < len(programs_list):
+                        options_ws.cell(row=current_row, column=2, value=programs_list[i])
+                        programs_written += 1
+                        
+                    current_row += 1
+                
+                # 留一行空白作为分隔
+                current_row += 1
+                
+                # 添加数据验证
+                if schools_written > 0:
+                    # 创建学校下拉列表
+                    school_range = f"选项列表!$A${options_start_row+1}:$A${options_start_row+schools_written}"
+                    school_dv = DataValidation(type="list", formula1=f"={school_range}")
+                    # 设置错误消息
+                    school_dv.error = '请从下拉列表中选择一个选项'
+                    school_dv.errorTitle = '输入错误'
+                    
+                    # 添加到工作表
+                    school_cell = f"{get_column_letter(enrollment_school_col)}{row}"
+                    school_dv.add(school_cell)
+                    kalen_ws.add_data_validation(school_dv)
+                
+                if programs_written > 0:
+                    # 创建专业下拉列表
+                    program_range = f"选项列表!$B${options_start_row+1}:$B${options_start_row+programs_written}"
+                    program_dv = DataValidation(type="list", formula1=f"={program_range}")
+                    # 设置错误消息
+                    program_dv.error = '请从下拉列表中选择一个选项'
+                    program_dv.errorTitle = '输入错误'
+                    
+                    # 添加到工作表
+                    program_cell = f"{get_column_letter(enrollment_program_col)}{row}"
+                    program_dv.add(program_cell)
+                    kalen_ws.add_data_validation(program_dv)
+            
+            except Exception as e:
+                st.warning(f"为第{row}行添加下拉选项时出错: {str(e)}")
         
         st.success("入学院校和入学专业列添加完成")
         
