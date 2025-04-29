@@ -247,6 +247,13 @@ def create_offer_sheets(template_file, kalen_file, selected_sheet):
             name_cell.alignment = Alignment(horizontal='left')
             ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=len(display_columns))
             
+            # 添加邮箱超链接到N1单元格
+            email_cell = ws.cell(row=1, column=14)  # N列是第14列
+            email_link = f'http://crmuk.ukec.com/admin/customer-email/detail?id={client_id}'
+            email_cell.value = f'=HYPERLINK("{email_link}", "邮箱")'
+            email_cell.font = Font(bold=True, size=12, color="0000FF", underline="single")  # 蓝色下划线
+            email_cell.alignment = Alignment(horizontal='left')
+            
             # 设置表头
             headers = display_columns + ['押金截止倒计时(天)']
             for col, header in enumerate(headers, 1):
@@ -323,11 +330,24 @@ def create_offer_sheets(template_file, kalen_file, selected_sheet):
         if 'Sheet' in offer_wb.sheetnames:
             offer_wb.remove(offer_wb['Sheet'])
         
+        # 更新申请跟进.xlsx中的超链接，仅添加ID列超链接，不添加姓名列文件夹链接
+        st.info("更新申请跟进表中的超链接...")
+        kalen_wb = load_workbook(tmp_path)
+        kalen_ws = kalen_wb[selected_sheet]
+        
+        # 在ID列添加超链接，使用保存的原始ID值
+        if id_col:
+            for row, original_id in id_values.items():
+                if original_id:
+                    # 创建超链接
+                    link = f'=HYPERLINK("[Offer 跟进.xlsx]{original_id}!A1", "{original_id}")'
+                    kalen_ws.cell(row=row, column=id_col, value=link)
+        
         # 创建或更新VIP情况表
         st.info("更新VIP情况表...")
-        if "VIP情况" in offer_wb.sheetnames:
-            offer_wb.remove(offer_wb["VIP情况"])
-        vip_ws = offer_wb.create_sheet(title="VIP情况", index=0)  # 设置为第一个表
+        if "VIP情况" in kalen_wb.sheetnames:
+            kalen_wb.remove(kalen_wb["VIP情况"])
+        vip_ws = kalen_wb.create_sheet(title="VIP情况", index=0)  # 设置为第一个表
         
         # 定义VIP学校列表
         vip_schools = [
@@ -411,9 +431,9 @@ def create_offer_sheets(template_file, kalen_file, selected_sheet):
         
         # 创建或更新押金DDL总结表格
         st.info("更新押金DDL总结表格...")
-        if "押金DDL" in offer_wb.sheetnames:
-            offer_wb.remove(offer_wb["押金DDL"])
-        summary_ws = offer_wb.create_sheet(title="押金DDL", index=1)  # 设置为第二个表
+        if "押金DDL" in kalen_wb.sheetnames:
+            kalen_wb.remove(kalen_wb["押金DDL"])
+        summary_ws = kalen_wb.create_sheet(title="押金DDL", index=1)  # 设置为第二个表
         
         # 设置表头
         headers = ['姓名', '申请院校英文', '申请专业英文', '押金截止日期', '剩余天数']
@@ -484,18 +504,26 @@ def create_offer_sheets(template_file, kalen_file, selected_sheet):
         
         st.success("押金DDL总结表格更新完成")
         
-        # 更新申请跟进.xlsx中的超链接，仅添加ID列超链接，不添加姓名列文件夹链接
-        st.info("更新申请跟进表中的超链接...")
-        kalen_wb = load_workbook(tmp_path)
-        kalen_ws = kalen_wb[selected_sheet]
+        # 添加入学院校和入学专业列到申请跟进表
+        st.info("添加入学院校和入学专业列...")
+        # 找到最后一列
+        last_col = kalen_ws.max_column
         
-        # 在ID列添加超链接，使用保存的原始ID值
-        if id_col:
-            for row, original_id in id_values.items():
-                if original_id:
-                    # 创建超链接
-                    link = f'=HYPERLINK("[Offer 跟进.xlsx]{original_id}!A1", "{original_id}")'
-                    kalen_ws.cell(row=row, column=id_col, value=link)
+        # 添加入学院校列
+        enrollment_school_col = last_col + 1
+        kalen_ws.cell(row=1, column=enrollment_school_col, value='入学院校')
+        kalen_ws.cell(row=1, column=enrollment_school_col).fill = PatternFill(start_color='D3D3D3', end_color='D3D3D3', fill_type='solid')
+        
+        # 添加入学专业列
+        enrollment_program_col = last_col + 2
+        kalen_ws.cell(row=1, column=enrollment_program_col, value='入学专业')
+        kalen_ws.cell(row=1, column=enrollment_program_col).fill = PatternFill(start_color='D3D3D3', end_color='D3D3D3', fill_type='solid')
+        
+        # 调整新列的列宽
+        kalen_ws.column_dimensions[get_column_letter(enrollment_school_col)].width = 25
+        kalen_ws.column_dimensions[get_column_letter(enrollment_program_col)].width = 25
+        
+        st.success("入学院校和入学专业列添加完成")
         
         st.success("所有数据处理完成！")
         
