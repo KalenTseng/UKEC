@@ -107,7 +107,7 @@ def create_offer_sheets(template_file, kalen_file, selected_sheet):
         # 定义需要保留的列
         columns_to_keep = [
             '客户id', '姓名',  # 这两列用于识别，但不会显示在最终表格中
-            '申请院校英文', '申请专业英文', '申请结果', 
+            '申请院校英文', '申请专业英文', '申请结果', '网申账户（OnlineApplyAccount）', 'Track账户密码（TrackPassword）',
             'Student-Number',  '入学条件',
             '是否完成语言条件', '语言条件', '是否完成推荐信条件', '推荐信条件',
             '押金类型', '押金截止日期', '是否完成押金条件', '成押金条件'
@@ -249,7 +249,7 @@ def create_offer_sheets(template_file, kalen_file, selected_sheet):
             ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=len(display_columns))
             
             # 添加邮箱超链接到N1单元格
-            email_cell = ws.cell(row=1, column=14)  # N列是第14列
+            email_cell = ws.cell(row=1, column=16)  # N列是第14列
             email_link = f'http://crmuk.ukec.com/admin/customer-email/detail?id={client_id}'
             email_cell.value = f'=HYPERLINK("{email_link}", "邮箱")'
             email_cell.font = Font(bold=True, size=12, color="0000FF", underline="single")  # 蓝色下划线
